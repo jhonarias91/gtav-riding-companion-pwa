@@ -1,0 +1,22 @@
+{
+  "name": "gtbikev-companion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "bridge": "node bridge/start.mjs",
+    "build": "npm run build:fit && npm run build:qr",
+    "build:fit": "esbuild fit-entry.js --bundle --minify --format=esm --outfile=dist/fit-sdk.js",
+    "build:qr": "esbuild qr-entry.js --bundle --minify --format=esm --outfile=dist/qr-decoder.js",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@garmin/fitsdk": "^21.0.0",
+    "jsqr": "^1.4.0"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0",
+    "esbuild": "^0.25.0"
+  }
+}

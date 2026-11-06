@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#100c1a">
+  <meta name="description" content="GTAV Riding Companion: rodada, recorridos, entrenamientos y actividades de GTBike V.">
+  <title>GTAV Riding Companion</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./companion.css">
+  <script type="module" src="./companion-app.js"></script>
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <main id="main" class="app-main" aria-live="polite"></main>
+    <nav id="bottom-nav" class="bottom-nav" aria-label="Navegación principal"></nav>
+  </div>
+  <dialog id="dialog" class="app-dialog"><div id="dialog-content"></div></dialog>
+  <dialog id="qr-dialog" class="app-dialog qr-dialog">
+    <h2 id="qr-title"></h2>
+    <video id="qr-video" autoplay playsinline muted aria-labelledby="qr-title"></video>
+    <button class="button full" type="button" id="qr-cancel"></button>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

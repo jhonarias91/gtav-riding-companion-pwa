@@ -1,0 +1,230 @@
+{
+  "connection.status": {
+    "title": "help_connection_status_title",
+    "body": "help_connection_status_body"
+  },
+  "connection.address": {
+    "title": "help_connection_address_title",
+    "body": "help_connection_address_body"
+  },
+  "connection.pairing": {
+    "title": "help_connection_pairing_title",
+    "body": "help_connection_pairing_body"
+  },
+  "connection.identity": {
+    "title": "help_connection_identity_title",
+    "body": "help_connection_identity_body"
+  },
+  "connection.lanPermission": {
+    "title": "help_connection_lan_permission_title",
+    "body": "help_connection_lan_permission_body"
+  },
+  "connection.stale": {
+    "title": "help_connection_stale_title",
+    "body": "help_connection_stale_body"
+  },
+  "connection.compatibility": {
+    "title": "help_connection_compatibility_title",
+    "body": "help_connection_compatibility_body"
+  },
+  "mod.activate": {
+    "title": "help_mod_activate_title",
+    "body": "help_mod_activate_body"
+  },
+  "mod.deactivate": {
+    "title": "help_mod_deactivate_title",
+    "body": "help_mod_deactivate_body"
+  },
+  "routes.browse": {
+    "title": "help_routes_browse_title",
+    "body": "help_routes_browse_body"
+  },
+  "routes.pcPreview": {
+    "title": "help_routes_pc_preview_title",
+    "body": "help_routes_pc_preview_body"
+  },
+  "routes.apply": {
+    "title": "help_routes_apply_title",
+    "body": "help_routes_apply_body"
+  },
+  "routes.loop": {
+    "title": "help_routes_loop_title",
+    "body": "help_routes_loop_body"
+  },
+  "routes.reverse": {
+    "title": "help_routes_reverse_title",
+    "body": "help_routes_reverse_body"
+  },
+  "routes.freeRide": {
+    "title": "help_routes_free_ride_title",
+    "body": "help_routes_free_ride_body"
+  },
+  "routes.profile": {
+    "title": "help_routes_profile_title",
+    "body": "help_routes_profile_body"
+  },
+  "ride.autopilot": {
+    "title": "help_ride_autopilot_title",
+    "body": "help_ride_autopilot_body"
+  },
+  "ride.obstacles": {
+    "title": "help_ride_obstacles_title",
+    "body": "help_ride_obstacles_body"
+  },
+  "profile.weight": {
+    "title": "help_profile_weight_title",
+    "body": "help_profile_weight_body"
+  },
+  "profile.ftp": {
+    "title": "help_profile_ftp_title",
+    "body": "help_profile_ftp_body"
+  },
+  "profile.hrMax": {
+    "title": "help_profile_hr_max_title",
+    "body": "help_profile_hr_max_body"
+  },
+  "appearance.bike": {
+    "title": "help_appearance_bike_title",
+    "body": "help_appearance_bike_body"
+  },
+  "appearance.character": {
+    "title": "help_appearance_character_title",
+    "body": "help_appearance_character_body"
+  },
+  "ride.difficulty": {
+    "title": "help_ride_difficulty_title",
+    "body": "help_ride_difficulty_body"
+  },
+  "ride.roadFeel": {
+    "title": "help_ride_road_feel_title",
+    "body": "help_ride_road_feel_body"
+  },
+  "ride.gearing": {
+    "title": "help_ride_gearing_title",
+    "body": "help_ride_gearing_body"
+  },
+  "training.catalog": {
+    "title": "help_training_catalog_title",
+    "body": "help_training_catalog_body"
+  },
+  "training.select": {
+    "title": "help_training_select_title",
+    "body": "help_training_select_body"
+  },
+  "training.progress": {
+    "title": "help_training_progress_title",
+    "body": "help_training_progress_body"
+  },
+  "training.reference": {
+    "title": "help_training_reference_title",
+    "body": "help_training_reference_body"
+  },
+  "activity.save": {
+    "title": "help_activity_save_title",
+    "body": "help_activity_save_body"
+  },
+  "activity.saveUnknown": {
+    "title": "help_activity_save_unknown_title",
+    "body": "help_activity_save_unknown_body"
+  },
+  "metrics.power": {
+    "title": "help_metrics_power_title",
+    "body": "help_metrics_power_body"
+  },
+  "metrics.cadence": {
+    "title": "help_metrics_cadence_title",
+    "body": "help_metrics_cadence_body"
+  },
+  "metrics.heartRate": {
+    "title": "help_metrics_heart_rate_title",
+    "body": "help_metrics_heart_rate_body"
+  },
+  "metrics.speed": {
+    "title": "help_metrics_speed_title",
+    "body": "help_metrics_speed_body"
+  },
+  "metrics.time": {
+    "title": "help_metrics_time_title",
+    "body": "help_metrics_time_body"
+  },
+  "metrics.movingTime": {
+    "title": "help_metrics_moving_time_title",
+    "body": "help_metrics_moving_time_body"
+  },
+  "metrics.elevation": {
+    "title": "help_metrics_elevation_title",
+    "body": "help_metrics_elevation_body"
+  },
+  "activity.history": {
+    "title": "help_activity_history_title",
+    "body": "help_activity_history_body"
+  },
+  "activity.download": {
+    "title": "help_activity_download_title",
+    "body": "help_activity_download_body"
+  },
+  "activity.summary": {
+    "title": "help_activity_summary_title",
+    "body": "help_activity_summary_body"
+  },
+  "activity.powerChart": {
+    "title": "help_activity_power_chart_title",
+    "body": "help_activity_power_chart_body"
+  },
+  "activity.zones": {
+    "title": "help_activity_zones_title",
+    "body": "help_activity_zones_body"
+  },
+  "map.gameWorld": {
+    "title": "help_map_game_world_title",
+    "body": "help_map_game_world_body"
+  },
+  "multiplayer.riders": {
+    "title": "help_multiplayer_riders_title",
+    "body": "help_multiplayer_riders_body"
+  },
+  "multiplayer.join": {
+    "title": "help_multiplayer_join_title",
+    "body": "help_multiplayer_join_body"
+  },
+  "advanced.bots": {
+    "title": "help_advanced_bots_title",
+    "body": "help_advanced_bots_body"
+  },
+  "modConfig.options": {
+    "title": "help_mod_config_options_title",
+    "body": "help_mod_config_options_body"
+  },
+  "advanced.traffic": {
+    "title": "help_advanced_traffic_title",
+    "body": "help_advanced_traffic_body"
+  },
+  "settings.applyMode": {
+    "title": "help_settings_apply_mode_title",
+    "body": "help_settings_apply_mode_body"
+  },
+  "app.language": {
+    "title": "help_app_language_title",
+    "body": "help_app_language_body"
+  },
+  "app.theme": {
+    "title": "help_app_theme_title",
+    "body": "help_app_theme_body"
+  },
+  "app.units": {
+    "title": "help_app_units_title",
+    "body": "help_app_units_body"
+  },
+  "app.keepAwake": {
+    "title": "help_app_keep_awake_title",
+    "body": "help_app_keep_awake_body"
+  },
+  "app.unpair": {
+    "title": "help_app_unpair_title",
+    "body": "help_app_unpair_body"
+  },
+  "diagnostics.local": {
+    "title": "help_diagnostics_local_title",
+    "body": "help_diagnostics_local_body"
+  }
+}
