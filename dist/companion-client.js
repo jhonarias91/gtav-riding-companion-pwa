@@ -5,6 +5,17 @@ const saved = (key, fallback) => {
 export const preferences = saved('gtav-companion-preferences', { language: 'es', theme: 'system', units: 'metric' });
 export function savePreferences() { localStorage.setItem('gtav-companion-preferences', JSON.stringify(preferences)); }
 
+// A random ID per browser, so pairing this PC's browser does not replace a phone's PWA pairing (or the other way round).
+function browserClientId() {
+  try {
+    const known = localStorage.getItem('gtav-companion-client-id');
+    if (/^[a-f0-9]{32}$/.test(known ?? '')) return known;
+    const id = [...crypto.getRandomValues(new Uint8Array(16))].map(byte => byte.toString(16).padStart(2, '0')).join('');
+    localStorage.setItem('gtav-companion-client-id', id);
+    return id;
+  } catch { return null; }
+}
+
 export class CompanionClient {
   constructor() {
     const paired = saved('gtav-companion-pairing', null);
@@ -58,10 +69,15 @@ export class CompanionClient {
     return hello;
   }
 
+  pairingIdentity() {
+    const clientId = browserClientId();
+    return { clientName: 'GTAV Riding Companion PWA', ...(clientId ? { clientId } : {}) };
+  }
+
   async pair(pin) {
     if (!/^\d{6}$/.test(pin)) throw Error('PAIRING_PIN_INVALID');
     const hello = this.hello ?? await this.probe();
-    const paired = await this.request('pair', { method: 'POST', body: { pin, clientName: 'GTAV Riding Companion PWA' }, auth: false });
+    const paired = await this.request('pair', { method: 'POST', body: { pin, ...this.pairingIdentity() }, auth: false });
     await this.finishPair(hello, paired);
   }
 
@@ -73,7 +89,7 @@ export class CompanionClient {
     if (hello.bridgeId !== qr.bridgeId) throw Error('BRIDGE_CHANGED');
     let paired;
     try {
-      paired = await this.request('pair', { method: 'POST', body: { pairingKey: qr.pairingKey, clientName: 'GTAV Riding Companion PWA' }, auth: false });
+      paired = await this.request('pair', { method: 'POST', body: { pairingKey: qr.pairingKey, ...this.pairingIdentity() }, auth: false });
     } catch (error) {
       if (error.message === 'PAIRING_PIN_INVALID') throw Error('QR_USED');
       throw error;

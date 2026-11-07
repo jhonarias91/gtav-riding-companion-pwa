@@ -7,7 +7,7 @@ import { once } from 'node:events';
 import { mkdtemp, writeFile, unlink, rmdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createPwaServer, wifiAddress } from '../server.mjs';
+import { createPwaServer, lanAddress, wifiAddress } from '../server.mjs';
 import { parsePairingQr } from '../dist/pairing-qr.js';
 import jsQR from '../dist/qr-decoder.js';
 import qrcode from '../../gtav-riding-companion-bridge/node_modules/qrcode-generator/dist/qrcode.mjs';
@@ -151,4 +151,17 @@ test('Wi-Fi address selection prefers the private wireless IPv4', () => {
   };
   assert.equal(wifiAddress(networks), '192.168.1.37');
   assert.equal(wifiAddress({ 'Wi-Fi': [{ family: 'IPv4', address: '169.254.1.2', internal: false }] }), null);
+});
+
+test('LAN address falls back to Ethernet when there is no Wi-Fi, skipping virtual adapters', () => {
+  const both = {
+    Ethernet: [{ family: 'IPv4', address: '192.168.1.27', internal: false }],
+    'Wi-Fi': [{ family: 'IPv4', address: '192.168.1.37', internal: false }],
+  };
+  assert.equal(lanAddress(both), '192.168.1.37');
+  assert.equal(lanAddress({
+    'vEthernet (WSL)': [{ family: 'IPv4', address: '172.20.0.1', internal: false }],
+    'Ethernet 2': [{ family: 'IPv4', address: '10.0.0.8', internal: false }],
+  }), '10.0.0.8');
+  assert.equal(lanAddress({ 'vEthernet (Default Switch)': [{ family: 'IPv4', address: '172.20.0.1', internal: false }] }), null);
 });

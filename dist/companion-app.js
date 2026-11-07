@@ -620,7 +620,7 @@ document.addEventListener('input', event => {
   }
 });
 
-window.addEventListener('hashchange', () => { stopQrScan(); window.scrollTo(0, 0); render(); loadPage(); });
+window.addEventListener('hashchange', () => { if (/^#pair=\d{6}$/.test(location.hash)) { location.reload(); return; } stopQrScan(); window.scrollTo(0, 0); render(); loadPage(); });
 setInterval(async () => {
   if (client.mode === 'demo' && path() === 'ride') { ui.demoTick++; render(); return; }
   if (client.mode !== 'live' || ui.busy) return;
@@ -641,12 +641,33 @@ async function boot() {
   ui.bridgeTransport = info?.bridgeTransport ?? 'https';
   ui.bridgeFingerprint = info?.bridgeFingerprint ?? '';
   if (!client.token) client.setConnection(ui.bridgeTransport, ui.bridgeFingerprint);
+  // The PC window opens this page as #pair=123456. Take the code out of the address (and history) before anything else.
+  const handoff = /^#pair=(\d{6})$/.exec(location.hash);
+  if (handoff) history.replaceState(null, '', location.pathname + location.search + '#' + (client.mode === 'setup' ? 'connect' : 'ride'));
   if (!location.hash) location.hash = client.mode === 'setup' ? 'connect' : 'ride';
   render();
+  let live = false, handoffError = null;
   if (client.mode === 'live') {
-    try { await client.probe(); await client.refresh(); } catch (error) { client.lastError = error.message; }
+    try { await client.probe(); await client.refresh(); live = true; } catch (error) { client.lastError = error.message; }
+  }
+  if (handoff && !live) {
+    // A pairing from another PC, or an expired one, is replaced by this PC's code (kept if pairing fails).
+    const previous = { bridgeId: client.bridgeId, transport: client.transport, fingerprint: client.fingerprint };
+    try {
+      client.hello = null;
+      client.bridgeId = null;
+      client.setConnection(ui.bridgeTransport, ui.bridgeFingerprint);
+      await client.pair(handoff[1]);
+      history.replaceState(null, '', location.pathname + location.search + '#ride');
+    } catch (error) {
+      if (client.token) Object.assign(client, previous);
+      handoffError = error.message;
+      history.replaceState(null, '', location.pathname + location.search + '#connect');
+    }
+    render();
   }
   await loadPage();
+  if (handoffError) { ui.error = handoffError; render(); }
   if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('./sw.js').catch(() => {});
 }
 boot().catch(error => { $('#main').textContent = error.message; });

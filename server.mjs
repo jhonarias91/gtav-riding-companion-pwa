@@ -17,13 +17,21 @@ const types = {
 const hostAllowed = host => /^(localhost|127\.0\.0\.1|\[::1\]|(\d{1,3}\.){3}\d{1,3})(:\d{1,5})?$/.test(host ?? '');
 const fingerprintValid = value => /^[a-f0-9]{64}$/.test(value ?? '');
 const privateIpv4 = address => /^10\.|^192\.168\.|^172\.(1[6-9]|2\d|3[01])\./.test(address);
-export function wifiAddress(interfaces = networkInterfaces()) {
+const virtualAdapter = /vethernet|virtual|vmware|vbox|hyper-v|wsl|docker|loopback|bluetooth|vpn|tailscale|zerotier|hamachi/i;
+function addressOn(interfaces, pattern) {
   for (const [name, addresses] of Object.entries(interfaces)) {
-    if (!/wi-?fi|wlan|wireless|inal[aá]mbric/i.test(name)) continue;
-    const address = addresses.find(item => item.family === 'IPv4' && !item.internal && privateIpv4(item.address));
+    if (!pattern.test(name) || virtualAdapter.test(name)) continue;
+    const address = (addresses ?? []).find(item => item.family === 'IPv4' && !item.internal && privateIpv4(item.address));
     if (address) return address.address;
   }
   return null;
+}
+export function wifiAddress(interfaces = networkInterfaces()) {
+  return addressOn(interfaces, /wi-?fi|wlan|wireless|inal[aá]mbric/i);
+}
+/** The Wi-Fi address when there is one, otherwise the wired (Ethernet) one. */
+export function lanAddress(interfaces = networkInterfaces()) {
+  return wifiAddress(interfaces) ?? addressOn(interfaces, /ethernet|^eth\d|^en[ops]?\d|local area connection|conexi[oó]n de [aá]rea local/i);
 }
 const defaultBridgeKeyFile = join(process.env.LOCALAPPDATA ?? homedir(), 'GTBikeVCompanion', 'tls', 'bridge-key.pem');
 async function localBridgeFingerprint({ bridgeKeyFile, bridgeCertFile }) {
@@ -160,7 +168,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const index = args.indexOf(name);
     return index < 0 ? fallback : args[index + 1];
   };
-  const host = option('--host', wifiAddress() ?? '0.0.0.0');
+  const host = option('--host', lanAddress() ?? '0.0.0.0');
   const port = Number(option('--port', '4173'));
   const bridgePort = Number(option('--bridge-port', '8788'));
   const certFile = option('--tls-cert', null), keyFile = option('--tls-key', null);
@@ -180,8 +188,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     process.exitCode = 1;
   });
   server.listen(port, host, () => {
-    const address = host === '0.0.0.0' ? wifiAddress() : host;
+    const address = host === '0.0.0.0' ? lanAddress() : host;
     if (address) console.log(`GTAV Riding Companion PWA: ${tlsOptions ? 'https' : 'http'}://${address}:${port}`);
-    else console.log('GTAV Riding Companion PWA: no se encontró una IPv4 privada en la interfaz Wi-Fi. Conecta el PC al Wi-Fi y reinicia.');
+    else console.log('GTAV Riding Companion PWA: no se encontró una IPv4 privada en el Wi-Fi ni en Ethernet. Conecta el PC a la red local y reinicia.');
   });
 }

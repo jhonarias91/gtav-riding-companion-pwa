@@ -15,7 +15,7 @@ cd G:\develop2\games\GTBikeV\gtav-riding-companion-bridge
 node bridge/start-v1.mjs
 ```
 
-In another terminal, start the PWA. By default it listens on the PC's Wi-Fi interface and prints its private IPv4 address, for example `http://192.168.1.37:4173`. Open the printed address on a phone connected to the same Wi-Fi network:
+In another terminal, start the PWA. By default it listens on the PC's Wi-Fi interface (or, without Wi-Fi, its Ethernet one) and prints its private IPv4 address, for example `http://192.168.1.37:4173`. Open the printed address on a phone connected to the same network:
 
 ```powershell
 cd G:\develop2\games\GTBikeV\gtav-riding-companion-pwa
@@ -24,6 +24,8 @@ node server.mjs
 ```
 
 On **Connect**, enter only the six-digit code and tap **Connect**. The server reads the bridge key fingerprint from local files, so you do not need to copy it to the phone. You can also scan the bridge's QR code if you serve the PWA in a secure context and grant camera access. If the bridge uses another port, start the web server with `--bridge-port PORT`. For a bridge started with `--http-dev`, add `--bridge-http-dev` to the PWA command. If the bridge uses a custom TLS certificate, add `--bridge-cert C:\path\to\bridge-cert.pem`.
+
+The Windows app **GTAV Riding Companion** can do all of this for you: its **Web** tab downloads this repository, starts it with the bundled Node.js, and opens `http://ADDRESS:4173/#pair=CODE` already paired. The page removes the code from the address bar as soon as it loads. Opening the PWA with `#pair=` followed by the bridge's current six-digit code works the same way from any browser.
 
 To install the PWA on a phone, serve it with a TLS certificate trusted for the PC's address:
 

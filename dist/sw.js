@@ -1,4 +1,4 @@
-const CACHE = 'gtav-riding-companion-v5';
+const CACHE = 'gtav-riding-companion-v6';
 const SHELL = ['/', '/index.html', '/companion.css', '/companion-app.js', '/companion-client.js', '/pairing-qr.js', '/qr-decoder.js', '/favicon.svg', '/icon-192.png', '/icon-512.png', '/manifest.webmanifest', '/i18n/es.json', '/i18n/en.json', '/i18n/help-topics.json'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
