@@ -2,6 +2,8 @@
 
 # GTAV Riding Companion PWA
 
+**Prerequisite:** Install and run the [GTAV Riding Companion PC bridge](https://github.com/jhonarias91/gtav-riding-companion-bridge) on the PC to use this PWA with GTBike V.
+
 A web app based on `gtav-riding-companion-android` (its Compose screens and the text from version `0.7.0-p15`). It has the four **Ride, Routes, Training, and More** tabs, light and dark themes, unit preferences, contextual help, and screens for connection, profile, game options, activities, riders, and diagnostics. This PWA does not include sensor discovery, device selection, or phone Bluetooth scanning.
 
 Live data and controls use the Android bridge v1 API in `gtav-riding-companion-bridge`, rather than the archived web bridge in this directory. The PWA and bridge v1 must run on the **same PC**: the web server forwards requests only to `127.0.0.1` and automatically verifies the bridge's local key when it uses HTTPS. Demo mode uses sample data and disables PC controls.
