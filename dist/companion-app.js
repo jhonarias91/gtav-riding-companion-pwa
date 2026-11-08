@@ -1,7 +1,11 @@
 import { client, preferences, savePreferences } from './companion-client.js';
+import { cameraControlState, cameraModeKeys, normalizeHeading } from './camera-logic.js';
 import { parsePairingQr } from './pairing-qr.js';
 import jsQR from './qr-decoder.js';
+import { snake, shown, changes as addonChanges, fromInput, clock, formatValue, visibleStats, startBlock } from './addons-logic.js';
 
+/** Same version as the bridge and the Android app it ships with. */
+const APP_VERSION = '1.0.0';
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const id = value => encodeURIComponent(String(value));
@@ -13,6 +17,7 @@ const t = (key, ...args) => {
 };
 const T = (key, ...args) => esc(t(key, ...args));
 const reasonKeys = {
+  CAMERA_CONTROL_IN_USE: 'reason_camera_control_in_use',
   DEMO_MODE: 'reason_demo_mode', ADAPTER_ABSENT: 'reason_adapter_absent', ADAPTER_STALE: 'reason_adapter_stale',
   UNSUPPORTED_VERSION: 'reason_unsupported_version', MOD_INACTIVE: 'reason_mod_inactive', MOD_NOT_LOADED: 'reason_mod_not_loaded',
   CAPABILITY_UNAVAILABLE: 'reason_capability_unavailable', SENSOR_MISSING: 'reason_sensor_missing', NOT_CAPTURED: 'reason_not_captured',
@@ -26,6 +31,8 @@ const reasonKeys = {
   BRIDGE_KEY_UNAVAILABLE: 'pwa_bridge_key_unavailable',
   TLS_VERIFICATION_FAILED: 'reason_tls_verification', QR_INVALID: 'reason_qr_invalid', QR_USED: 'reason_qr_used',
   QR_SCAN_UNAVAILABLE: 'reason_qr_scan_unavailable', QR_PORT_MISMATCH: 'pwa_qr_port_mismatch',
+  RIDER_NOT_ON_BIKE: 'reason_rider_not_on_bike', ADDON_NO_POINTS: 'reason_addon_no_points', ADDON_BUSY: 'reason_addon_busy', ADDON_UNSAVED: 'addons_unsaved',
+  VALUE_NOT_ALLOWED: 'reason_value_not_allowed', NOT_FOUND: 'reason_not_found',
 };
 const reason = code => t(reasonKeys[code] ?? 'reason_unknown');
 const iconPaths = {
@@ -51,9 +58,11 @@ const metricText = (metric, key) => {
   return { value: key.endsWith('TimeMs') ? duration(value) : fmt(converted, decimals), unit: key.endsWith('TimeMs') ? '' : unit, note: metric.quality === 'stale' ? t('metric_stale_label') : '' };
 };
 const ui = {
+  camera: null, cameraError: null,
   query: '', routes: null, route: null, loop: true, reverse: false, preview: null,
   plans: null, workouts: null, workout: null, progress: null,
   activities: null, activity: null, settings: null, options: null, draft: null, riders: null, map: null, mapUrl: null,
+  addons: null, addonProgress: null, addonDraft: {}, addonDraftFor: null,
   error: null, busy: false, demoTick: 0, bridgePort: 8788, bridgeTransport: 'https', bridgeFingerprint: '',
 };
 const path = () => decodeURIComponent(location.hash.slice(1) || (client.mode === 'setup' ? 'connect' : 'ride'));
@@ -76,7 +85,7 @@ function snapshot() {
   };
 }
 const capability = name => client.mode === 'demo' ? { available: false, reasonCode: 'DEMO_MODE' } : client.capability(name) ?? { available: false, reasonCode: client.lastError ?? 'ADAPTER_ABSENT' };
-const helpButton = key => `<button class="help-button" type="button" data-action="help" data-help="${esc(key)}" aria-label="${T('more_help_topics')}: ${esc(helpTopics[key] ? t(helpTopics[key].title) : key)}">?</button>`;
+const helpButton = key => preferences.showHelpIcons ? `<button class="help-button" type="button" data-action="help" data-help="${esc(key)}" aria-label="${T('more_help_topics')}: ${esc(helpTopics[key] ? t(helpTopics[key].title) : key)}">?</button>` : '';
 const screenHeader = (key, help) => `<div class="screen-header"><h1>${T(key)}</h1>${help ? helpButton(help) : ''}</div>`;
 const card = (title, body, help) => `<section class="card"><div class="card-head"><h2>${esc(title)}</h2>${help ? helpButton(help) : '<span style="width:48px"></span>'}</div><div class="card-body">${body}</div></section>`;
 const statusLine = (label, value, tone = 'neutral') => `<div class="status-line" style="--tone:var(--${tone === 'good' ? 'success' : tone === 'warn' ? 'warning' : tone === 'bad' ? 'error' : 'muted'})"><span class="status-dot"></span><span class="status-label">${esc(label)}</span><span class="status-value" title="${esc(value)}">${esc(value)}</span></div>`;
@@ -128,7 +137,31 @@ function rideScreen() {
   return `<div class="screen">${banner()}${client.lastError === 'AUTH_REQUIRED' ? card(t('pair_again_title'), `${errorText(client.lastError)}${button(t('more_connection'), 'navigate', { full: true, data: 'data-to="connect"' })}`) : ''}<h1>${esc(title)}</h1>${layers.adapter === 'stale' ? `<p class="accent">${T('state_stale')} · ${fmt(Math.floor((state.snapshotAgeMs ?? 0) / 1000))} s</p>` : ''}${card(t('metric_power'), gauge(metrics.powerW, ftp) + (client.mode === 'demo' ? `<p class="small muted">${T('power_zone_demo_ftp', 250)}</p>` : '') + `<div class="metric-pair">${metricTile('cadenceRpm', t('metric_cadence'), metrics.cadenceRpm, 'metrics.cadence')}${metricTile('heartRateBpm', t('metric_heart_rate'), metrics.heartRateBpm, 'metrics.heartRate')}</div>`, 'metrics.power')}<div class="metric-grid">${[
     ['speedMps', 'metric_speed', 'metrics.speed'], ['distanceM', 'metric_distance'], ['ridingTimeMs', 'metric_riding_time', 'metrics.time'],
     ['movingTimeMs', 'metric_moving_time', 'metrics.movingTime'], ['elevationGainM', 'metric_elevation_gain', 'metrics.elevation'], ['slopeFraction', 'metric_grade'],
-  ].map(([key, label, help]) => metricTile(key, t(label), metrics[key], help)).join('')}</div>${ui.map ? mapCard() : ''}${card(t('layer_mod'), `<div class="setting-row"><div class="setting-copy"><p>${T('mod_active_label')}</p>${!modCap.available ? `<small class="reason">${esc(reason(modCap.reasonCode))}</small>` : ''}</div>${helpButton(modActive ? 'mod.deactivate' : 'mod.activate')}<input class="switch" type="checkbox" data-action="mod-toggle" aria-label="${T('mod_active_label')}" ${modActive ? 'checked' : ''} ${modCap.available && !ui.busy ? '' : 'disabled'}></div>`, null)}${layersCard}</div>`;
+  ].map(([key, label, help]) => metricTile(key, t(label), metrics[key], help)).join('')}</div>${ui.map ? mapCard() : ''}${cameraCard()}${card(t('layer_mod'), `<div class="setting-row"><div class="setting-copy"><p>${T('mod_active_label')}</p>${!modCap.available ? `<small class="reason">${esc(reason(modCap.reasonCode))}</small>` : ''}</div>${helpButton(modActive ? 'mod.deactivate' : 'mod.activate')}<input class="switch" type="checkbox" data-action="mod-toggle" aria-label="${T('mod_active_label')}" ${modActive ? 'checked' : ''} ${modCap.available && !ui.busy ? '' : 'disabled'}></div>`, null)}${layersCard}</div>`;
+}
+function cameraState() {
+  return cameraControlState(ui.camera, Object.fromEntries(['camera.next', 'camera.setMode', 'camera.look'].map(key => [key, capability(key)])),
+    client.mode === 'demo' || client.mode === 'live' && !client.lastError, ui.busy, client.lastError === 'AUTH_REQUIRED' ? 'AUTH_REQUIRED' : 'PC_UNREACHABLE');
+}
+function cameraCard() {
+  const s = cameraState(), c = ui.camera;
+  const slider = (axis, label, value, min, max) => `<label class="field camera-slider"><span>${T(label)}</span><input type="range" data-camera-angle="${axis}" aria-label="${T(label)}" min="${min}" max="${max}" step="1" value="${esc(Math.max(min, Math.min(max, value ?? 0)))}" ${s.lookBlock ? 'disabled' : ''}></label>`;
+  return card(t('camera_title'), `<p>${T('camera_current', s.currentMode ? t(cameraModeKeys[s.currentMode]) : t('metric_missing'))}</p>`
+    + button(t('camera_next'), 'camera-next', { full: true, large: true, primary: true, disabled: !!s.nextBlock })
+    + (s.nextBlock ? `<p class="small muted">${esc(ui.cameraError === 'NOT_FOUND' ? t('camera_bridge_update') : reason(s.nextBlock))}</p>` : '')
+    + `<div class="camera-modes" role="group" aria-label="${T('camera_title')}">${s.modes.map(mode => `<button class="button ${mode === s.currentMode ? 'primary' : ''}" type="button" data-action="camera-mode" data-mode="${mode}" aria-pressed="${mode === s.currentMode}" ${s.modeBlock ? 'disabled' : ''}>${T(cameraModeKeys[mode])}</button>`).join('')}</div>`
+    + (c ? `<div class="camera-arrows">${button(t('camera_left'), 'camera-left', { disabled: !!s.lookBlock })}${button(t('camera_right'), 'camera-right', { disabled: !!s.lookBlock })}</div>`
+      + slider('heading', 'camera_heading', c.headingDeg, -180, 180) + slider('pitch', 'camera_pitch', c.pitchDeg, -45, 45)
+      + button(t('camera_center'), 'camera-center', { full: true, disabled: !!s.lookBlock })
+      + (s.lookBlock && !s.nextBlock ? `<p class="small muted">${T(s.lookBlock === 'CAMERA_CONTROL_IN_USE' ? 'reason_camera_control_in_use' : 'camera_orbit_hint')}</p>` : '') : ''), 'camera.control');
+}
+async function loadCamera() {
+  try { ui.camera = await client.request('camera'); ui.cameraError = null; }
+  catch (error) { ui.camera = null; ui.cameraError = error.message; }
+}
+function cameraLook(heading, pitch) {
+  if (cameraState().lookBlock || !Number.isFinite(heading) || !Number.isFinite(pitch)) return;
+  return operation('camera.look', { headingDeg: normalizeHeading(heading), pitchDeg: Math.max(-45, Math.min(45, pitch)) });
 }
 function mapCard() {
   const map = ui.map;
@@ -204,10 +237,11 @@ function trainingScreen(planId, workoutId) {
 function workoutAmount(value, type) { return type === 'distance' ? metricText({ value }, 'distanceM').value + ' ' + t(metricUnits.distanceM) : duration(value * 1000); }
 
 function moreScreen() {
+  const helpSetting = `<label class="setting-row"><span class="setting-copy">${T('show_help_icons')}</span><input class="switch" type="checkbox" data-action="show-help-icons" ${preferences.showHelpIcons ? 'checked' : ''}></label>`;
   return `<div class="screen">${screenHeader('more_title')}${card(t('more_section_pc'), [
-    ['more_pc_settings', 'pc-settings'], ['more_game_options', 'game-options'], ['more_activities', 'activities'],
+    ['more_pc_settings', 'pc-settings'], ['more_addons', 'addons'], ['more_game_options', 'game-options'], ['more_activities', 'activities'],
     ['more_riders', 'riders'], ['more_connection', 'connect'],
-  ].map(([label, destination]) => linkRow(t(label), destination)).join(''), 'connection.status')}${card(t('more_language'), radio('language', [['en', t('language_english')], ['es', t('language_spanish')]], preferences.language), 'app.language')}${card(t('more_theme'), radio('theme', [['system', t('theme_system')], ['dark', t('theme_dark')], ['light', t('theme_light')]], preferences.theme), 'app.theme')}${card(t('more_units'), radio('units', [['metric', t('units_metric')], ['imperial', t('units_imperial')]], preferences.units), 'app.units')}${card(t('more_section_help'), linkRow(t('more_help_topics'), 'help') + linkRow(t('diagnostics_title'), 'diagnostics'), 'diagnostics.local')}${card(t('more_about'), `<p>${T('about_version', '0.1.0 · PWA')}</p><p class="small muted">${T('welcome_unofficial')}</p>`)}</div>`;
+  ].map(([label, destination]) => linkRow(t(label), destination)).join(''), 'connection.status')}${card(t('more_language'), radio('language', [['en', t('language_english')], ['es', t('language_spanish')]], preferences.language), 'app.language')}${card(t('more_theme'), radio('theme', [['system', t('theme_system')], ['dark', t('theme_dark')], ['light', t('theme_light')]], preferences.theme), 'app.theme')}${card(t('more_units'), radio('units', [['metric', t('units_metric')], ['imperial', t('units_imperial')]], preferences.units), 'app.units')}${card(t('more_section_help'), helpSetting + linkRow(t('more_help_topics'), 'help') + linkRow(t('diagnostics_title'), 'diagnostics'), 'diagnostics.local')}${card(t('more_about'), `<p>${T('about_version', `${APP_VERSION} · PWA`)}</p><p class="small muted">${T('welcome_unofficial')}</p>`)}</div>`;
 }
 function connectScreen() {
   const current = client.token ? card(t('connect_current_pc'), statusLine(t('connect_identity'), client.bridgeId ?? '—', 'good') + statusLine(t('connect_address'), `${location.hostname}:${ui.bridgePort}`) + (client.expiresAtUtc ? statusLine(t('connect_paired_until'), new Date(client.expiresAtUtc).toLocaleDateString(preferences.language)) : '') + (client.mode === 'demo' ? button(t('connect_button'), 'resume-live', { full: true, primary: true }) : '') + button(t('connect_forget'), 'forget-pc', { full: true }), 'app.unpair') : '';
@@ -286,6 +320,74 @@ function gameOptionsScreen() {
   const controls = `<div class="button-row">${button(t('action_save'), 'options-save', { primary: true, disabled: !editable || !dirty || ui.busy })}${button(t('action_discard'), 'options-discard', { disabled: !dirty })}${button(t('options_defaults'), 'options-defaults', { disabled: !editable })}</div>`;
   return `<div class="screen">${screenHeader('options_title')}<p>${T('options_intro')}</p><div class="notice ${doc?.gameRunning || !doc?.available ? 'warn' : ''}">${esc(status)}</div>${errorText(ui.error)}${draft ? `${controls}${optionSections.map(section => card(t(section.title), section.fields.map(spec => optionField(spec, draft, editable)).join(''), section.title === 'options_traffic' ? 'modConfig.options' : null)).join('')}${controls}` : button(t('action_retry'), 'reload', { full: true })}</div>`;
 }
+// ---- P18 add-ons: list, start/stop and typed settings, drawn from GET /api/v1/addons ----
+/** Local translation by registry id, else the bridge's English text (a new add-on still shows without an update). */
+const tx = (key, fallbackText) => strings[key] ?? fallback[key] ?? fallbackText ?? key;
+const addonName = addon => tx(`addon_${snake(addon.id)}_name`, addon.name);
+const paramLabel = (addon, param) => tx(`addon_param_${snake(addon.id)}_${snake(param.id)}`, param.label);
+const valueText = (value, unit) => formatValue(value, unit && /^[a-z]+$/.test(unit) ? tx(`addon_unit_${unit}`, unit) : unit, { word: text => tx(`addon_word_${snake(text.replaceAll(' ', '_'))}`, text), yesNo: flag => t(flag ? 'addons_yes' : 'addons_no') });
+const statRows = stats => visibleStats(stats).map(stat => statusLine(tx(`addon_stat_${snake(stat.id)}`, stat.label), valueText(stat.value, stat.unit))).join('');
+const demoParam = (id, label, type, extra) => ({ id, label, description: '', type, unit: null, liveEdit: true, editable: false, ...extra, value: extra.default });
+const demoAddons = { addonsRevision: null, reasonCode: 'DEMO_MODE', addons: [
+  { id: 'alleycat', name: 'Alleycat courier', category: 'mission', summary: '', description: '', helpId: 'addons.alleycat', state: 'idle', enabled: false, startReasonCode: 'DEMO_MODE', configureReasonCode: 'DEMO_MODE', segments: null, places: null, progress: null, run: null, result: null,
+    parameters: [demoParam('packages', 'Packages', 'integer', { min: 1, max: 10, step: 1, default: 5, liveEdit: false }), demoParam('fragility', 'Fragility', 'enum', { options: [{ id: 'low', label: 'Low' }, { id: 'normal', label: 'Normal' }, { id: 'high', label: 'High' }], default: 'normal' }), demoParam('headwindMps', 'Headwind with heavy packages', 'number', { min: 0, max: 12, step: .5, unit: 'm/s', default: 10 }), demoParam('showHud', 'On-screen status', 'boolean', { default: true })] },
+  { id: 'survivalSprint', name: 'Survival sprint', category: 'training', summary: '', description: '', helpId: 'addons.survivalSprint', state: 'idle', enabled: false, startReasonCode: 'DEMO_MODE', configureReasonCode: 'DEMO_MODE', segments: null, places: null, progress: null, run: null, result: null,
+    parameters: [demoParam('targetKmh', 'Target speed', 'integer', { min: 15, max: 60, step: 1, unit: 'km/h', default: 30 }), demoParam('chaser', 'Chaser', 'enum', { options: [{ id: 'phantomWedge', label: 'Phantom Wedge' }, { id: 'police', label: 'Police cruiser' }, { id: 'truck', label: 'Phantom truck' }], default: 'phantomWedge', liveEdit: false })] },
+  { id: 'ghost', name: 'Ghost segments', category: 'training', summary: '', description: '', helpId: 'addons.ghost', state: 'idle', enabled: false, startReasonCode: 'DEMO_MODE', configureReasonCode: 'DEMO_MODE', places: null, progress: null, run: null, result: null,
+    segments: [{ id: 'seg-0000000d', name: 'Demo climb', loop: false, straightM: 1490, attempts: 3, lastTimeS: 258.3, best: { timeS: 251.4, avgPowerW: 245 } }],
+    parameters: [demoParam('ghostSource', 'Race against', 'enum', { options: [{ id: 'best', label: 'My best' }, { id: 'last', label: 'My last' }], default: 'best' })] },
+  { id: 'discover', name: 'Discover', category: 'exploration', summary: '', description: '', helpId: 'addons.discover', state: 'idle', enabled: false, startReasonCode: 'DEMO_MODE', configureReasonCode: 'DEMO_MODE', segments: null, progress: null, run: null, result: null,
+    places: [{ id: 'pl-0000000d', name: 'Demo summit', found: 1, bestTimeS: 1802.4 }],
+    parameters: [demoParam('rounds', 'Spots per run', 'integer', { min: 1, max: 20, step: 1, default: 3, liveEdit: false }), demoParam('searchAreaM', 'Search circle', 'integer', { min: 0, max: 1000, step: 50, unit: 'm', default: 300 })] },
+] };
+const demoProgress = { xp: 1240, level: 3, levelName: 'Explorer', xpToNextLevel: 1010, levelProgressPct: 19, stats: [{ id: 'discoveries', label: 'Spots found', value: 7, unit: null }, { id: 'routesCompleted', label: 'Routes completed', value: 2, unit: null }, { id: 'streakDays', label: 'Daily streak', value: 2, unit: 'days' }], recent: [{ kind: 'route', label: 'Demo Coastal Loop', xp: 1758, timeS: 3122.4 }], routes: [{ routeId: '1', name: 'Demo Coastal Loop', completions: 2, laps: 0, bestTimeS: 3122.4 }], lastFind: null, lastRoute: null };
+function progressCard(progress, { routes = true } = {}) {
+  if (!progress) return '';
+  const recent = (progress.recent ?? []).slice(0, 3).map(event => `<p class="small">${esc(event.label)} · +${fmt(event.xp)} XP${event.timeS != null ? ` · ${esc(clock(event.timeS))}` : ''}</p>`).join('');
+  const done = routes && progress.routes?.length ? `<h3>${T('addons_routes_done')}</h3>${progress.routes.slice(0, 10).map(route => statusLine(route.name, t('addons_route_done', route.completions + route.laps, route.bestTimeS != null ? clock(route.bestTimeS) : '—'), 'good')).join('')}` : '';
+  return card(t('addons_progress'), `<p><strong>${T('addons_level', progress.level, progress.levelName)}</strong></p><p>${T('addons_xp', fmt(progress.xp), fmt(progress.xpToNextLevel))}</p><div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress.levelProgressPct}"><span style="width:${progress.levelProgressPct}%"></span></div>${statRows(progress.stats)}${recent ? `<h3>${T('addons_recent')}</h3>${recent}` : ''}${done}`, 'progress.xp');
+}
+function addonControl(addon, param, value, enabled) {
+  const label = esc(paramLabel(addon, param));
+  const hint = esc(tx(`addon_param_${snake(addon.id)}_${snake(param.id)}_hint`, param.description)) + (!param.liveEdit && !param.editable && addon.enabled ? ` · ${T('addons_locked_hint')}` : '');
+  const data = `data-addon-param="${esc(param.id)}" ${enabled ? '' : 'disabled'}`;
+  if (param.type === 'boolean') return `<label class="setting-row"><span class="setting-copy"><p>${label}</p><small>${hint}</small></span><input class="switch" type="checkbox" ${data} ${value ? 'checked' : ''}></label>`;
+  if (param.type === 'enum') return `<div><p>${label}</p>${param.options.map(option => `<label class="radio-row"><input type="radio" name="addon-${esc(param.id)}" value="${esc(option.id)}" ${data} ${option.id === value ? 'checked' : ''}><span>${esc(tx(`addon_opt_${snake(addon.id)}_${snake(param.id)}_${snake(option.id)}`, option.label))}</span></label>`).join('')}<p class="small muted">${hint}</p></div>`;
+  return `<div class="options-slider"><label for="addon-${esc(param.id)}"><span>${label}</span><output id="addon-out-${esc(param.id)}">${esc(valueText(value, param.unit))}</output></label><input id="addon-${esc(param.id)}" type="range" min="${param.min}" max="${param.max}" step="${param.step}" value="${esc(value)}" ${data}><p class="small muted">${hint}</p></div>`;
+}
+function addonsScreen(addonId) {
+  const doc = ui.addons;
+  const problem = !doc ? (client.mode === 'demo' ? null : ui.error === 'NOT_FOUND' ? t('addons_bridge_too_old') : ui.error ? reason(ui.error) : t('loading')) : doc.reasonCode ? reason(doc.reasonCode) : null;
+  const notice = problem ? `<div class="notice warn">${esc(problem)}</div>` : '';
+  const addon = doc?.addons?.find(item => item.id === addonId);
+  if (!addon) {
+    const list = (doc?.addons ?? []).map(item => listRow(addonName(item), `${tx(`addon_state_${snake(item.state)}`, item.state)} · ${tx(`addon_${snake(item.id)}_summary`, item.summary)}`, 'navigate', `data-to="addons/${esc(item.id)}"`)).join('');
+    return `<div class="screen">${banner()}${textButton(t('action_back'), 'navigate', 'data-to="more"')}${screenHeader('addons_title', 'addons.catalog')}<p>${T('addons_intro')}</p>${notice}${progressCard(ui.addonProgress)}${doc ? card(t('addons_title'), list || `<p>${T('addons_none')}</p>`) : button(t('action_retry'), 'reload', { full: true })}</div>`;
+  }
+  if (ui.addonDraftFor !== addon.id) { ui.addonDraft = {}; ui.addonDraftFor = addon.id; }
+  const pending = addonChanges(addon, ui.addonDraft);
+  const dirty = Object.keys(pending).length > 0;
+  const live = client.mode === 'live';
+  const run = addon.run;
+  const time = run ? (run.timeLeftS != null ? t('addons_time_left', clock(run.timeLeftS)) : run.elapsedS > 0 ? t('addons_elapsed', clock(run.elapsedS)) : '') : '';
+  const block = startBlock(addon, doc, { capability: live ? capability('addons.setEnabled') : { available: false, reasonCode: 'DEMO_MODE' }, busy: ui.busy, dirty });
+  const stopBlocked = !live || ui.busy || !capability('addons.setEnabled').available;
+  const saveBlocked = !live || ui.busy || !dirty || !doc?.addonsRevision || !!addon.configureReasonCode || !capability('addons.configure').available;
+  const runButtons = addon.enabled
+    ? button(t('addons_stop'), 'addon-stop', { primary: true, disabled: stopBlocked, data: `data-addon="${esc(addon.id)}"` })
+    : `${button(t('addons_start'), 'addon-start', { primary: true, disabled: !!block, data: `data-addon="${esc(addon.id)}"` })}${block && block !== 'OPERATION_IN_PROGRESS' ? `<p class="small muted">${block === 'ADDON_UNSAVED' ? T('addons_unsaved') : T('addons_to_start', reason(block))}</p>` : ''}`;
+  const status = `<p>${statusLine(t('addons_state'), tx(`addon_state_${snake(addon.state)}`, addon.state), addon.enabled ? 'good' : addon.state === 'failed' ? 'bad' : 'neutral')}</p>${run ? `<p><strong>${esc(tx(`addon_phase_${snake(run.phase)}`, run.phase))}</strong></p>${time ? `<p>${esc(time)}</p>` : ''}${statRows(run.stats)}` : ''}${!run && addon.result ? `<p>${T('addons_last_run', tx(`addon_outcome_${snake(addon.result.outcome)}`, addon.result.outcome))}</p>${statRows(addon.result.stats)}` : ''}`;
+  const items = (title, list, detail) => list ? card(title, `${list.map(item => statusLine(item.name, detail(item))).join('') || '—'}<p class="small muted">${T('addons_items_hint')}</p>`) : '';
+  const segments = items(t('addons_segments'), addon.segments, item => item.best ? `${clock(item.best.timeS)}${item.best.avgPowerW != null ? ` · ${fmt(item.best.avgPowerW)} W` : ''} · ×${item.attempts}` : `×${item.attempts}`);
+  const places = items(t('addons_places'), addon.places, item => `${item.found ? '✓ ×' + item.found : '—'}${item.bestTimeS != null ? ` · ${clock(item.bestTimeS)}` : ''}`);
+  const settings = addon.parameters.length ? card(t('addons_settings'), `${addon.parameters.map(param => addonControl(addon, param, shown(param, ui.addonDraft), live && param.editable && !ui.busy)).join('')}<div class="button-row">${button(t('addons_save'), 'addon-save', { primary: true, disabled: saveBlocked, data: `data-addon="${esc(addon.id)}"` })}${button(t('addons_discard'), 'addon-discard', { disabled: !dirty })}</div>`) : '';
+  return `<div class="screen">${banner()}${textButton(t('action_back'), 'navigate', 'data-to="addons"')}${screenHeader('addons_title')}${notice}${card(addonName(addon), `<p>${esc(tx(`addon_${snake(addon.id)}_summary`, addon.summary))}</p>${status}<div class="button-row">${runButtons}</div>${errorText(ui.error)}`, addon.helpId)}${progressCard(addon.progress, { routes: false })}${segments}${places}${settings}</div>`;
+}
+async function loadAddons() {
+  ui.addons = await client.request('addons');
+  if (ui.demoTick % 5 === 0 || !ui.addonProgress) ui.addonProgress = await client.request('progress').then(doc => doc.progress).catch(() => ui.addonProgress);
+}
+
 function activitiesScreen(activityId) {
   const page = ui.activities;
   if (activityId) {
@@ -314,11 +416,11 @@ function ridersScreen() {
 function diagnosticsScreen() {
   const state = snapshot(), hello = client.hello;
   const caps = client.capabilities?.capabilities ?? [];
-  const version = card(t('diagnostics_versions'), statusLine(t('diagnostics_app'), 'PWA 0.1.0') + statusLine(t('diagnostics_bridge'), hello ? `${hello.bridgeVersion} · API 1.${hello.apiMinor}` : client.mode === 'demo' ? t('state_demo') : t('metric_missing'), hello ? 'good' : 'neutral') + (hello ? statusLine(t('diagnostics_transport'), hello.transport === 'https' ? 'HTTPS' : t('diagnostics_http_dev'), hello.transport === 'https' ? 'good' : 'warn') : '') + statusLine(t('diagnostics_mod'), state?.modVersion ?? t('metric_missing')) + statusLine(t('diagnostics_profile'), state?.bindingProfile ?? t('metric_missing')));
+  const version = card(t('diagnostics_versions'), statusLine(t('diagnostics_app'), `PWA ${APP_VERSION}`) + statusLine(t('diagnostics_bridge'), hello ? `${hello.bridgeVersion} · API 1.${hello.apiMinor}` : client.mode === 'demo' ? t('state_demo') : t('metric_missing'), hello ? 'good' : 'neutral') + (hello ? statusLine(t('diagnostics_transport'), hello.transport === 'https' ? 'HTTPS' : t('diagnostics_http_dev'), hello.transport === 'https' ? 'good' : 'warn') : '') + statusLine(t('diagnostics_mod'), state?.modVersion ?? t('metric_missing')) + statusLine(t('diagnostics_profile'), state?.bindingProfile ?? t('metric_missing')));
   return `<div class="screen">${screenHeader('diagnostics_title', 'diagnostics.local')}<p>${T('diagnostics_intro')}</p>${version}${card(t('diagnostics_capabilities'), caps.filter(item => !item.id.startsWith('devices.') && item.id !== 'sensors.read').map(item => statusLine(item.id, item.available ? t('diagnostics_available') : item.reasonCode ?? '—', item.available ? 'good' : 'neutral')).join('') || `<p>${client.mode === 'demo' ? T('state_demo') : T('loading')}</p>`)}${button(t('diagnostics_copy'), 'diagnostics-copy', { full: true, large: true })}<p class="small muted">${T('diagnostics_privacy')}</p></div>`;
 }
 function helpScreen() {
-  return `<div class="screen">${screenHeader('more_help_topics')}${Object.entries(helpTopics).map(([key, item]) => `<div class="setting-row"><span class="setting-copy">${T(item.title)}</span>${helpButton(key)}</div>`).join('')}</div>`;
+  return `<div class="screen">${screenHeader('more_help_topics')}${Object.entries(helpTopics).map(([key, item]) => `<div class="setting-row"><button class="button text" type="button" data-action="help" data-help="${esc(key)}">${T(item.title)}</button>${helpButton(key)}</div>`).join('')}</div>`;
 }
 
 function render() {
@@ -336,12 +438,13 @@ function render() {
   else if (section === 'more') html = moreScreen();
   else if (section === 'pc-settings') html = pcSettingsScreen();
   else if (section === 'game-options') html = gameOptionsScreen();
+  else if (section === 'addons') html = addonsScreen(sub);
   else if (section === 'activities') html = activitiesScreen(sub);
   else if (section === 'riders') html = ridersScreen();
   else if (section === 'diagnostics') html = diagnosticsScreen();
   else if (section === 'help') html = helpScreen();
   else { navigate(client.mode === 'setup' ? 'connect' : 'ride'); return; }
-  if (!navVisible && ((section === 'connect' && client.mode !== 'setup') || (section === 'activities' && !sub) || !['connect', 'routes', 'training', 'activities'].includes(section))) html = `<div class="screen">${textButton(t('action_back'), 'navigate', 'data-to="more"')}${html}</div>`;
+  if (!navVisible && ((section === 'connect' && client.mode !== 'setup') || (section === 'activities' && !sub) || !['connect', 'routes', 'training', 'activities', 'addons'].includes(section))) html = `<div class="screen">${textButton(t('action_back'), 'navigate', 'data-to="more"')}${html}</div>`;
   $('#main').innerHTML = html;
   document.documentElement.lang = preferences.language;
   document.documentElement.dataset.theme = preferences.theme;
@@ -358,12 +461,14 @@ async function loadPage() {
     if (section === 'pc-settings') { ui.settings = demoSettings; ui.profileDraft = { weightKg: preferences.units === 'imperial' ? Math.round(72 * 2.20462) : 72, ftpW: 250, hrMaxBpm: 185 }; }
     if (section === 'game-options') { ui.options = demoOptions; ui.draft = structuredClone(demoOptionsDefaults); }
     if (section === 'riders') ui.riders = demoRiders;
+    if (section === 'addons') { ui.addons = demoAddons; ui.addonProgress = demoProgress; }
     render(); return;
   }
   if (client.mode !== 'live') { render(); return; }
   try {
     if (!client.state) await client.refresh();
     if (section === 'ride') {
+      await loadCamera();
       if (capability('profile.read').available) ui.settings = await client.request('settings').catch(() => ui.settings);
       if (capability('map.position').available) await loadMap();
     } else if (section === 'routes') {
@@ -390,7 +495,8 @@ async function loadPage() {
     } else if (section === 'game-options') {
       ui.options = await client.request('mod-config');
       ui.draft = ui.options.options ? { ...ui.options.defaults, ...Object.fromEntries(Object.entries(ui.options.options).filter(([, value]) => value != null)) } : null;
-    } else if (section === 'riders') ui.riders = await client.request('riders');
+    } else if (section === 'addons') await loadAddons();
+    else if (section === 'riders') ui.riders = await client.request('riders');
     else if (section === 'diagnostics') client.hello = await client.probe();
   } catch (error) { ui.error = error.message; }
   render();
@@ -495,6 +601,12 @@ document.addEventListener('click', async event => {
   if (action === 'close-dialog') { $('#dialog').close(); ui.confirm = null; return; }
   if (action === 'confirm-dialog') { const callback = ui.confirm; $('#dialog').close(); ui.confirm = null; if (callback) callback(); return; }
   if (action === 'reload') return loadPage();
+  if (action === 'camera-next' && !cameraState().nextBlock) return operation('camera.next', {});
+  if (action === 'camera-mode' && !cameraState().modeBlock && ui.camera?.modes.includes(node.dataset.mode) && ui.camera.currentMode !== node.dataset.mode)
+    return operation('camera.setMode', { mode: node.dataset.mode });
+  if (action === 'camera-left') return cameraLook((ui.camera?.headingDeg ?? 0) + 30, ui.camera?.pitchDeg ?? 0);
+  if (action === 'camera-right') return cameraLook((ui.camera?.headingDeg ?? 0) - 30, ui.camera?.pitchDeg ?? 0);
+  if (action === 'camera-center') return cameraLook(0, 0);
   if (action === 'scan-qr') return startQrScan();
   if (action === 'pair') return run(async () => {
     const pin = $('input[name="pin"]')?.value?.trim() ?? '';
@@ -563,6 +675,27 @@ document.addEventListener('click', async event => {
     if (delta < 0) { const index = ui.draft.bots.indexOf(type); if (index >= 0) ui.draft.bots.splice(index, 1); }
     render(); return;
   }
+  if (action === 'addon-start') return run(async () => {
+    await client.command('addons.setEnabled', { addonId: node.dataset.addon, enabled: true }, ui.addons?.addonsRevision ?? null);
+    toast(t('addons_started', addonName(ui.addons.addons.find(item => item.id === node.dataset.addon))));
+  });
+  if (action === 'addon-stop') {
+    const addon = ui.addons.addons.find(item => item.id === node.dataset.addon);
+    return dialog(t('addons_stop_title', addonName(addon)), t('addons_stop_body'), () => run(async () => {
+      await client.command('addons.setEnabled', { addonId: addon.id, enabled: false }, null);
+      toast(t('addons_stopped', addonName(addon)));
+    }), t('addons_stop'));
+  }
+  if (action === 'addon-save') return run(async () => {
+    const addon = ui.addons.addons.find(item => item.id === node.dataset.addon);
+    const params = addonChanges(addon, ui.addonDraft);
+    if (!Object.keys(params).length) return;
+    try { await client.command('addons.configure', { addonId: addon.id, params }, ui.addons.addonsRevision); }
+    catch (error) { if (error.message === 'REVISION_CONFLICT') ui.addonDraft = {}; throw error; }
+    ui.addonDraft = {};
+    toast(t('addons_saved'));
+  });
+  if (action === 'addon-discard') { ui.addonDraft = {}; render(); return; }
   if (action === 'activity-save') return dialog(t('activity_save_title'), t('activity_save_body'), () => operation('activities.finish', {}, snapshot()?.sessionGeneration), t('action_save'));
   if (action === 'fit-download') return run(async () => {
     const activity = ui.activity.activity;
@@ -573,13 +706,23 @@ document.addEventListener('click', async event => {
   }, { reload: false });
   if (action === 'diagnostics-copy') {
     const state = snapshot();
-    const report = `App: PWA 0.1.0\nBridge: ${client.hello?.bridgeVersion ?? '-'}\nAPI: 1.${client.hello?.apiMinor ?? '-'}\nMod: ${state?.modVersion ?? '-'}\nProfile: ${state?.bindingProfile ?? '-'}\nLayers: adapter=${state?.layers?.adapter ?? '-'} mod=${state?.layers?.mod ?? '-'}\n` + (client.capabilities?.capabilities ?? []).filter(cap => !cap.id.startsWith('devices.') && cap.id !== 'sensors.read').map(cap => `${cap.id}: ${cap.available ? 'ok' : cap.reasonCode}`).join('\n');
+    const report = `App: PWA ${APP_VERSION}\nBridge: ${client.hello?.bridgeVersion ?? '-'}\nAPI: 1.${client.hello?.apiMinor ?? '-'}\nMod: ${state?.modVersion ?? '-'}\nProfile: ${state?.bindingProfile ?? '-'}\nLayers: adapter=${state?.layers?.adapter ?? '-'} mod=${state?.layers?.mod ?? '-'}\n` + (client.capabilities?.capabilities ?? []).filter(cap => !cap.id.startsWith('devices.') && cap.id !== 'sensors.read').map(cap => `${cap.id}: ${cap.available ? 'ok' : cap.reasonCode}`).join('\n');
     await navigator.clipboard.writeText(report); toast(t('diagnostics_copied')); return;
   }
 });
 
 document.addEventListener('change', event => {
   const node = event.target;
+  if (node.dataset.cameraAngle) {
+    const value = Number(node.value), camera = ui.camera;
+    node.blur();
+    return cameraLook(node.dataset.cameraAngle === 'heading' ? value : camera?.headingDeg ?? 0,
+      node.dataset.cameraAngle === 'pitch' ? value : camera?.pitchDeg ?? 0);
+  }
+  if (node.dataset.action === 'show-help-icons') {
+    preferences.showHelpIcons = node.checked;
+    savePreferences(); render(); return;
+  }
   if (node.name === 'language' || node.name === 'theme' || node.name === 'units') {
     preferences[node.name] = node.value; savePreferences(); syncUnits();
     if (node.name === 'language') reloadStrings().then(render); else render();
@@ -594,6 +737,14 @@ document.addEventListener('change', event => {
   if (node.dataset.option) {
     ui.draft[node.dataset.option] = node.type === 'checkbox' ? node.checked : node.type === 'number' && node.value === '' ? null : node.type === 'range' || node.type === 'number' || node.dataset.option === 'defensiveLevel' ? Number(node.value) : node.value;
     const save = document.querySelector('[data-action="options-save"]'); if (save) save.disabled = false;
+  }
+  if (node.dataset.addonParam) {
+    const addon = ui.addons?.addons?.find(item => item.id === parts()[1]);
+    const param = addon?.parameters.find(item => item.id === node.dataset.addonParam);
+    if (!param) return;
+    ui.addonDraft[param.id] = fromInput(param, node);
+    node.blur(); // The 1 s poll redraws only when no input has focus.
+    render();
   }
 });
 document.addEventListener('input', event => {
@@ -613,6 +764,12 @@ document.addEventListener('input', event => {
       try { ui.routes = await client.request(`routes?offset=0&limit=100&q=${encodeURIComponent(ui.query)}`); redraw(); } catch (error) { ui.error = error.message; redraw(); }
     }, 300);
   }
+  if (node.dataset.addonParam && node.type === 'range') {
+    const addon = ui.addons?.addons?.find(item => item.id === parts()[1]);
+    const param = addon?.parameters.find(item => item.id === node.dataset.addonParam);
+    const output = $(`#addon-out-${node.dataset.addonParam}`);
+    if (param && output) output.textContent = valueText(fromInput(param, node), param.unit);
+  }
   if (node.dataset.option) {
     const output = $(`#output-${node.dataset.option}`); if (output) output.textContent = node.value + (node.dataset.option === 'trafficBikesPercent' || node.dataset.option === 'crowdsSlopePercent' ? '%' : node.dataset.option === 'screenshotIntervalKm' ? ' km' : '');
     ui.draft[node.dataset.option] = node.type === 'checkbox' ? node.checked : node.type === 'number' && node.value === '' ? null : node.type === 'range' || node.type === 'number' ? Number(node.value) : node.value;
@@ -627,10 +784,12 @@ setInterval(async () => {
   try {
     await client.refresh();
     const [section, sub] = parts();
-    if (section === 'ride') { if (capability('map.position').available && ui.demoTick++ % 3 === 0) await loadMap(); render(); }
+    if (section === 'ride') { await loadCamera(); if (capability('map.position').available && ui.demoTick++ % 3 === 0) await loadMap(); if (!document.activeElement?.dataset.cameraAngle) render(); }
     if (section === 'training') { if (ui.demoTick++ % 2 === 0) { ui.progress = await client.request('workout-progress'); if (document.activeElement?.tagName !== 'INPUT') render(); } }
     if (section === 'routes' && sub) { ui.preview = await client.request('route-preview'); render(); }
     if (section === 'riders' && ui.demoTick++ % 3 === 0) { ui.riders = await client.request('riders'); render(); }
+    // Add-ons: run progress changes every second; never redraw under a finger on a slider or a switch.
+    if (section === 'addons') { ui.demoTick++; await loadAddons(); if (document.activeElement?.tagName !== 'INPUT') render(); }
   } catch (error) { client.lastError = error.message; if (path() === 'ride') render(); }
 }, 1000);
 

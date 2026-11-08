@@ -49,3 +49,7 @@ npm test
 `npm test` comprueba la API web anterior y el proxy nuevo, incluido el emparejamiento con un puente v1 simulado y la verificación de la huella HTTPS. La integración dentro de GTA V y en un teléfono físico necesita una comprobación con el PC del usuario.
 
 Los archivos `dist/app.js`, `dist/bridge-ui.js`, `dist/bridge-client.js`, `dist/style.css` y `dist/game-controls.*` pertenecen al prototipo web anterior y no se cargan desde `index.html`. `npm run bridge` sigue iniciando ese puente antiguo para quien necesite consultar el archivo histórico.
+
+## Licencia
+
+Este proyecto se distribuye bajo la [licencia MIT](https://github.com/jhonarias91/gtav-riding-companion-pwa/blob/main/LICENSE).

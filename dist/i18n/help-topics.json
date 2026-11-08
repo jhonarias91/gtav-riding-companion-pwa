@@ -195,6 +195,30 @@
     "title": "help_mod_config_options_title",
     "body": "help_mod_config_options_body"
   },
+  "addons.catalog": {
+    "title": "help_addons_catalog_title",
+    "body": "help_addons_catalog_body"
+  },
+  "addons.alleycat": {
+    "title": "help_addons_alleycat_title",
+    "body": "help_addons_alleycat_body"
+  },
+  "addons.survivalSprint": {
+    "title": "help_addons_survival_sprint_title",
+    "body": "help_addons_survival_sprint_body"
+  },
+  "addons.ghost": {
+    "title": "help_addons_ghost_title",
+    "body": "help_addons_ghost_body"
+  },
+  "addons.discover": {
+    "title": "help_addons_discover_title",
+    "body": "help_addons_discover_body"
+  },
+  "progress.xp": {
+    "title": "help_progress_xp_title",
+    "body": "help_progress_xp_body"
+  },
   "advanced.traffic": {
     "title": "help_advanced_traffic_title",
     "body": "help_advanced_traffic_body"
@@ -226,5 +250,9 @@
   "diagnostics.local": {
     "title": "help_diagnostics_local_title",
     "body": "help_diagnostics_local_body"
+  },
+  "camera.control": {
+    "title": "help_camera_control_title",
+    "body": "help_camera_control_body"
   }
 }

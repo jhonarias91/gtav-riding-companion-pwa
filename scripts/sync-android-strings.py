@@ -29,7 +29,7 @@ pwa_overrides = {
 
 for locale, directory in (("en", "values"), ("es", "values-es")):
     strings = {}
-    for filename in ("strings.xml", "strings_game_options.xml", "strings_help.xml"):
+    for filename in ("strings.xml", "strings_game_options.xml", "strings_addons.xml", "strings_help.xml"):
         document = ElementTree.parse(android / directory / filename)
         for node in document.getroot():
             name = node.get("name")

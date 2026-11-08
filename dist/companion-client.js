@@ -2,7 +2,8 @@ const saved = (key, fallback) => {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
 };
 
-export const preferences = saved('gtav-companion-preferences', { language: 'es', theme: 'system', units: 'metric' });
+export const preferences = { language: 'es', theme: 'system', units: 'metric', showHelpIcons: false, ...saved('gtav-companion-preferences', {}) };
+preferences.showHelpIcons = preferences.showHelpIcons === true;
 export function savePreferences() { localStorage.setItem('gtav-companion-preferences', JSON.stringify(preferences)); }
 
 // A random ID per browser, so pairing this PC's browser does not replace a phone's PWA pairing (or the other way round).

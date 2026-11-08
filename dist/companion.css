@@ -193,3 +193,9 @@ small, .small { font-size: 13px; line-height: 18px; }
 .back-button { align-self: flex-start; }
 .spacer { height: 10px; }
 @media (min-width: 900px) { .app-shell { box-shadow: 0 0 0 1px var(--surface-high); } }
+/* Camera controls wrap on small phones and retain a 48 px touch target. */
+.camera-modes { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 12px; }
+.camera-modes .button, .camera-arrows .button { min-height: 48px; }
+.camera-arrows { display: flex; flex-wrap: wrap; gap: 8px; }
+.camera-arrows .button { flex: 1 1 140px; }
+.camera-slider input[type="range"] { width: 100%; min-height: 48px; touch-action: pan-y; }
