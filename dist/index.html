@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#100c1a">
-  <meta name="description" content="GTAV Riding Companion: rodada, recorridos, entrenamientos y actividades de GTBike V.">
-  <title>GTAV Riding Companion</title>
+  <meta name="theme-color" content="#0d1117">
+  <meta name="description" content="GTAV Riding Companion: rodada, recorridos, entrenamientos y dispositivos de GTBike V.">
+  <title>GTBike V Companion</title>
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./companion.css">
@@ -13,9 +13,51 @@
 </head>
 <body>
   <div id="app" class="app-shell">
+    <header id="top-bar" class="top-bar">
+      <button id="nav-toggle" class="icon-button" type="button" aria-label="Abrir navegación">
+        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>
+      </button>
+      <div class="top-bar-title">
+        <h1 id="screen-title">Rodar</h1>
+        <span id="screen-subtitle" class="screen-subtitle">GTBikeV sin confirmar</span>
+      </div>
+      <div class="top-bar-actions">
+        <button id="header-connection" class="connection-pill" type="button" aria-label="Diagnóstico de conexión">
+          <span class="status-dot"></span>
+          <span id="header-connection-text">PC sin conexión</span>
+        </button>
+        <button id="header-actions" class="icon-button" type="button" aria-label="Acciones de la actividad" hidden>
+          <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v1M12 11.5v1M12 19v1" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg>
+        </button>
+      </div>
+    </header>
+
     <main id="main" class="app-main" aria-live="polite"></main>
     <nav id="bottom-nav" class="bottom-nav" aria-label="Navegación principal"></nav>
   </div>
+
+  <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+  <aside id="drawer" class="drawer" aria-label="Menú principal" hidden>
+    <div class="drawer-header">
+      <h2>GTBike V Companion</h2>
+      <div id="drawer-summary" class="drawer-summary">
+        <div id="drawer-pc-status" class="status-line"></div>
+        <div id="drawer-mod-status" class="drawer-sub muted"></div>
+        <div id="drawer-bike-name" class="drawer-bike"></div>
+        <div id="drawer-profile-summary" class="drawer-profile muted"></div>
+      </div>
+    </div>
+    <hr class="drawer-divider">
+    <nav id="drawer-nav" class="drawer-nav"></nav>
+  </aside>
+
+  <div id="sheet-backdrop" class="sheet-backdrop" hidden></div>
+  <div id="bottom-sheet" class="bottom-sheet" role="dialog" aria-modal="true" hidden>
+    <div class="sheet-drag-handle" aria-hidden="true"></div>
+    <div id="sheet-content" class="sheet-content"></div>
+    <button id="sheet-close" class="button full" type="button">Cerrar</button>
+  </div>
+
   <dialog id="dialog" class="app-dialog"><div id="dialog-content"></div></dialog>
   <dialog id="qr-dialog" class="app-dialog qr-dialog">
     <h2 id="qr-title"></h2>

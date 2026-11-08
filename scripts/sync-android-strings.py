@@ -29,7 +29,7 @@ pwa_overrides = {
 
 for locale, directory in (("en", "values"), ("es", "values-es")):
     strings = {}
-    for filename in ("strings.xml", "strings_game_options.xml", "strings_addons.xml", "strings_help.xml"):
+    for filename in ("strings.xml", "strings_companion.xml", "strings_game_options.xml", "strings_addons.xml", "strings_help.xml"):
         document = ElementTree.parse(android / directory / filename)
         for node in document.getroot():
             name = node.get("name")
@@ -50,6 +50,5 @@ topics = {
     for help_id, title, body in re.findall(
         r'\("([\w.]+)", R\.string\.([\w]+), R\.string\.([\w]+)\)', topics_source
     )
-    if not help_id.startswith("devices.")
 }
 (output / "help-topics.json").write_text(json.dumps(topics, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

@@ -103,6 +103,46 @@
     "title": "help_ride_gearing_title",
     "body": "help_ride_gearing_body"
   },
+  "devices.policy": {
+    "title": "help_devices_policy_title",
+    "body": "help_devices_policy_body"
+  },
+  "devices.auto": {
+    "title": "help_devices_auto_title",
+    "body": "help_devices_auto_body"
+  },
+  "devices.lock": {
+    "title": "help_devices_lock_title",
+    "body": "help_devices_lock_body"
+  },
+  "devices.skip": {
+    "title": "help_devices_skip_title",
+    "body": "help_devices_skip_body"
+  },
+  "devices.technology": {
+    "title": "help_devices_technology_title",
+    "body": "help_devices_technology_body"
+  },
+  "devices.missing": {
+    "title": "help_devices_missing_title",
+    "body": "help_devices_missing_body"
+  },
+  "devices.phoneScan": {
+    "title": "help_devices_phone_scan_title",
+    "body": "help_devices_phone_scan_body"
+  },
+  "devices.phonePermission": {
+    "title": "help_devices_phone_permission_title",
+    "body": "help_devices_phone_permission_body"
+  },
+  "devices.phoneDisconnect": {
+    "title": "help_devices_phone_disconnect_title",
+    "body": "help_devices_phone_disconnect_body"
+  },
+  "devices.phoneWaiting": {
+    "title": "help_devices_phone_waiting_title",
+    "body": "help_devices_phone_waiting_body"
+  },
   "training.catalog": {
     "title": "help_training_catalog_title",
     "body": "help_training_catalog_body"
